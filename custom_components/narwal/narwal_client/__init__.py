@@ -3,7 +3,7 @@
 from .client import NarwalClient, NarwalConnectionError, NarwalCommandError
 from .cloud import NarwalCloud, NarwalCloudError, NarwalAuthError, NarwalCloudSession, NarwalDevice
 from .const import WorkingStatus, FanLevel, MopHumidity, CleanMode
-from .models import NarwalState, CommandResponse, RoomInfo
+from .models import NarwalState, CommandResponse, RoomInfo, protobuf_tree
 
 __all__ = [
     "NarwalClient",
@@ -17,6 +17,7 @@ __all__ = [
     "NarwalState",
     "CommandResponse",
     "RoomInfo",
+    "protobuf_tree",
     "WorkingStatus",
     "FanLevel",
     "MopHumidity",

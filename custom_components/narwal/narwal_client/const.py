@@ -79,6 +79,8 @@ class WorkingStatus(IntEnum):
     UPGRADING = 12
     SELF_CHECK = 13
     CHARGED = 14
+    # Freo X Ultra: seen right after supply/dust_gathering, sub-field 18 = 3.
+    DUST_COLLECTING_ULTRA = 19
     ERROR = 99
 
 

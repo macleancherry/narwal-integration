@@ -54,6 +54,15 @@
     "button": {
       "locate": {
         "name": "Locate"
+      },
+      "empty_dustbin": {
+        "name": "Empty dustbin"
+      },
+      "wash_mop": {
+        "name": "Wash mop"
+      },
+      "dry_mop": {
+        "name": "Dry mop"
       }
     },
     "camera": {

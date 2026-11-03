@@ -17,7 +17,7 @@ from . import NarwalConfigEntry
 from .const import CLEAN_MODE_MAP, FAN_SPEED_LIST, FAN_SPEED_MAP, FAN_SPEED_REVERSE
 from .coordinator import NarwalCoordinator
 from .entity import NarwalEntity
-from .narwal_client import CleanMode, FanLevel, NarwalCommandError, WorkingStatus
+from .narwal_client import CleanMode, FanLevel, NarwalCommandError, WorkingStatus, protobuf_tree
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -34,6 +34,7 @@ WORKING_STATUS_TO_ACTIVITY: dict[WorkingStatus, VacuumActivity] = {
     WorkingStatus.MOP_DRYING: VacuumActivity.DOCKED,
     WorkingStatus.DOCKED: VacuumActivity.DOCKED,
     WorkingStatus.DUST_COLLECTING: VacuumActivity.DOCKED,
+    WorkingStatus.DUST_COLLECTING_ULTRA: VacuumActivity.DOCKED,
     WorkingStatus.UPGRADING: VacuumActivity.IDLE,
     WorkingStatus.SELF_CHECK: VacuumActivity.IDLE,
     WorkingStatus.CHARGED: VacuumActivity.DOCKED,
@@ -204,5 +205,25 @@ class NarwalVacuum(NarwalEntity, StateVacuumEntity):
                     resp.result_code, room_ids, mode.name if mode else "None",
                     state.working_status.name if state else "unknown",
                 )
+        elif command == "query":
+            # Diagnostics: send any topic and report the decoded reply, e.g.
+            #   command: query
+            #   params: {topic: consumable/get_consumable_info}
+            # The result is logged and fired as a narwal_query_result event.
+            p = params if isinstance(params, dict) else {}
+            topic = str(p.get("topic", "")).strip("/")
+            if not topic:
+                _LOGGER.warning("query needs params.topic")
+                return
+            extra = bytes.fromhex(p["payload_hex"]) if p.get("payload_hex") else b""
+            resp = await self.coordinator.client.send_command(topic, extra)
+            result = {
+                "topic": topic,
+                "result_code": resp.result_code,
+                "data": protobuf_tree(resp.data) or resp.data.hex(),
+                "raw": protobuf_tree(resp.raw) or resp.raw.hex(),
+            }
+            _LOGGER.warning("Query result: %s", result)
+            self.hass.bus.async_fire("narwal_query_result", result)
         else:
             _LOGGER.warning("Unknown send_command: %s", command)

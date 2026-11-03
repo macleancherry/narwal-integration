@@ -29,6 +29,9 @@ from .const import (
     TOPIC_CMD_GET_MAP,
     TOPIC_CMD_PAUSE,
     TOPIC_CMD_RECALL,
+    TOPIC_CMD_DRY_MOP,
+    TOPIC_CMD_DUST_GATHERING,
+    TOPIC_CMD_WASH_MOP,
     TOPIC_CMD_RESUME,
     TOPIC_CMD_SET_FAN_LEVEL,
     TOPIC_CMD_SET_MOP_HUMIDITY,
@@ -640,6 +643,18 @@ class NarwalClient:
 
     async def return_to_base(self) -> CommandResponse:
         return await self.send_command(TOPIC_CMD_RECALL)
+
+    async def empty_dustbin(self) -> CommandResponse:
+        """Ask the dock to empty the robot's dustbin (station auto-empty)."""
+        return await self.send_command(TOPIC_CMD_DUST_GATHERING)
+
+    async def wash_mop(self) -> CommandResponse:
+        """Ask the dock to wash the mops."""
+        return await self.send_command(TOPIC_CMD_WASH_MOP)
+
+    async def dry_mop(self) -> CommandResponse:
+        """Ask the dock to start drying the mops."""
+        return await self.send_command(TOPIC_CMD_DRY_MOP)
 
     async def set_fan_speed(self, level: FanLevel) -> CommandResponse:
         # Same app scale as start_clean: 2 Quiet .. 5 Max.

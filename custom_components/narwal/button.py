@@ -6,6 +6,7 @@ import logging
 
 from homeassistant.components.button import ButtonEntity
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from . import NarwalConfigEntry
@@ -25,6 +26,9 @@ async def async_setup_entry(
     async_add_entities([
         NarwalLocateButton(coordinator),
         NarwalWakeButton(coordinator),
+        NarwalDockButton(coordinator, "empty_dustbin", "mdi:delete-empty", "empty_dustbin"),
+        NarwalDockButton(coordinator, "wash_mop", "mdi:water-sync", "wash_mop"),
+        NarwalDockButton(coordinator, "dry_mop", "mdi:weather-windy", "dry_mop"),
     ])
 
 
@@ -63,3 +67,30 @@ class NarwalWakeButton(NarwalEntity, ButtonEntity):
         """Send active_robot_publish to wake the vacuum."""
         await self.coordinator.client.notify_active()
         _LOGGER.info("Sent wake (active_robot) notification")
+
+
+class NarwalDockButton(NarwalEntity, ButtonEntity):
+    """Runs a base-station job: empty dustbin, wash mops or dry mops."""
+
+    def __init__(
+        self, coordinator: NarwalCoordinator, key: str, icon: str, method: str,
+    ) -> None:
+        super().__init__(coordinator)
+        self._attr_translation_key = key
+        self._attr_icon = icon
+        self._method = method
+        self._attr_unique_id = (
+            f"{coordinator.config_entry.data['device_name']}_{key}"
+        )
+
+    async def async_press(self) -> None:
+        """Send the dock command; surface a refusal in the UI."""
+        client = self.coordinator.client
+        await client.notify_active()
+        resp = await getattr(client, self._method)()
+        _LOGGER.info("%s returned code=%s", self._method, resp.result_code)
+        if not resp.success:
+            raise HomeAssistantError(
+                f"The vacuum declined {self._method.replace('_', ' ')} "
+                f"(code {resp.result_code}). It usually needs to be on the dock."
+            )

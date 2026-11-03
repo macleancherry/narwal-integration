@@ -33,6 +33,7 @@ STATUS_NAMES = {
     WorkingStatus.MOP_DRYING: "Drying Mop",
     WorkingStatus.DOCKED: "Docked",
     WorkingStatus.DUST_COLLECTING: "Emptying Dustbin",
+    WorkingStatus.DUST_COLLECTING_ULTRA: "Emptying Dustbin",
     WorkingStatus.UPGRADING: "Upgrading",
     WorkingStatus.SELF_CHECK: "Self Check",
     WorkingStatus.CHARGED: "Charged",
@@ -52,7 +53,8 @@ async def async_setup_entry(
         NarwalStatusSensor(coordinator),
         NarwalElapsedTimeSensor(coordinator),
         NarwalCleanedAreaSensor(coordinator),
-    ] + ([NarwalProgressSensor(coordinator)] if coordinator.client.is_freo_x_plus else []))
+        NarwalProgressSensor(coordinator),
+    ])
 
 
 class NarwalBatterySensor(NarwalEntity, SensorEntity):
@@ -156,7 +158,7 @@ class NarwalCleanedAreaSensor(NarwalEntity, SensorEntity):
 
 
 class NarwalProgressSensor(NarwalEntity, SensorEntity):
-    """Progress of the current cleaning task (Freo X Plus)."""
+    """Progress of the current cleaning task, with the room being cleaned."""
 
     _attr_translation_key = "progress"
     _attr_state_class = SensorStateClass.MEASUREMENT

@@ -150,6 +150,7 @@ class NarwalState:
             WorkingStatus.DOCKED, WorkingStatus.CHARGED,
             WorkingStatus.CHARGING, WorkingStatus.MOP_WASHING,
             WorkingStatus.MOP_DRYING, WorkingStatus.DUST_COLLECTING,
+            WorkingStatus.DUST_COLLECTING_ULTRA,
         )
         # Log state transitions at WARNING so we can diagnose enum
         # mismapping without asking the user to change log levels.
@@ -183,11 +184,17 @@ class NarwalState:
         """
         fields = parse_protobuf_fields(payload)
         self.raw_working_status = fields
+        if _LOGGER.isEnabledFor(logging.DEBUG):
+            _LOGGER.debug("working_status tree: %s", protobuf_tree(payload))
 
         if 3 in fields and isinstance(fields[3], int):
             self.elapsed_time = fields[3]
 
-        if self.freo_x_plus:
+        # Freo X Ultra firmware sends the same layout as the X Plus (captured
+        # 2026-11: 1 float32 100.0, 2 float32 7.23 m², 3 elapsed, 5 {1: 3, 2: 3}
+        # while the app showed room 3), and no field 13. Older firmware sent
+        # the area as an int in field 13, so fall back to that when present.
+        if self.freo_x_plus or 13 not in fields:
             # Freo X Plus layout (captured):
             #   1 (float32) progress %, 2 (float32) cleaned area m²,
             #   3 elapsed s, 5 {1: current room id}; 11/13/15 are constants
@@ -478,3 +485,61 @@ def parse_protobuf_fields(data: bytes) -> dict:
             break  # unknown wire type
 
     return fields
+
+
+def protobuf_tree(data: bytes, depth: int = 5) -> list:
+    """Decode protobuf into a nested [field, value] list for diagnostics.
+
+    Keeps repeated fields (unlike parse_protobuf_fields) and recurses into
+    length-delimited values that themselves parse cleanly.
+    """
+    out: list = []
+    i, n = 0, len(data)
+    try:
+        while i < n:
+            tag, shift = 0, 0
+            while True:
+                b = data[i]; i += 1
+                tag |= (b & 0x7F) << shift; shift += 7
+                if not b & 0x80:
+                    break
+            fnum, wt = tag >> 3, tag & 7
+            if fnum == 0:
+                raise ValueError
+            if wt == 0:
+                v, shift = 0, 0
+                while True:
+                    b = data[i]; i += 1
+                    v |= (b & 0x7F) << shift; shift += 7
+                    if not b & 0x80:
+                        break
+                out.append([fnum, v])
+            elif wt == 1:
+                out.append([fnum, "f64:" + data[i:i + 8].hex()]); i += 8
+            elif wt == 5:
+                raw = data[i:i + 4]; i += 4
+                out.append([fnum, round(struct.unpack("<f", raw)[0], 4), "u32:%d" % struct.unpack("<I", raw)[0]])
+            elif wt == 2:
+                ln, shift = 0, 0
+                while True:
+                    b = data[i]; i += 1
+                    ln |= (b & 0x7F) << shift; shift += 7
+                    if not b & 0x80:
+                        break
+                chunk = data[i:i + ln]; i += ln
+                if len(chunk) != ln:
+                    raise ValueError
+                sub = protobuf_tree(chunk, depth - 1) if depth > 0 and chunk else None
+                if sub:
+                    out.append([fnum, sub])
+                else:
+                    try:
+                        txt = chunk.decode("utf-8")
+                        out.append([fnum, txt if txt.isprintable() else chunk.hex()])
+                    except UnicodeDecodeError:
+                        out.append([fnum, chunk.hex()])
+            else:
+                raise ValueError
+    except (IndexError, ValueError, struct.error):
+        return []
+    return out
