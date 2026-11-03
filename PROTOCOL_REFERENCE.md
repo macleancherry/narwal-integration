@@ -230,8 +230,8 @@ field 1 (sub-message) {           // CleanConfig
       field 2 = <passes>
       field 3 = <vacuum_on>       // 1=on, 0=off
       field 4 = <mop_on>          // 1=on, 2=off
-      field 5 = <fan_level>       // 0=quiet, 1=normal, 2=strong, 3=max
-      field 6 = <mop_humidity>    // 0=dry, 1=normal, 2=wet
+      field 5 = <suction>         // 2=quiet, 3=standard, 4=turbo, 5=max (app scale; 3 confirmed = Standard on Freo X Ultra)
+      field 6 = <mop_humidity>    // 1=slightly dry, 2=standard, 3=slightly wet
       field 7 = 1
       field 8 = 1
       field 9 = 1

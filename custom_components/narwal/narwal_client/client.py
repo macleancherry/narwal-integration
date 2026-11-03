@@ -481,8 +481,11 @@ class NarwalClient:
             + _make_protobuf_varint(2, passes)
             + _make_protobuf_varint(3, 1 if vacuum_on else 0)
             + _make_protobuf_varint(4, 1 if mop_on else 2)
-            + _make_protobuf_varint(5, fan_level.value)
-            + _make_protobuf_varint(6, mop_humidity.value)
+            # The robot uses the app's scales, not our enums: suction 2 Quiet ..
+            # 5 Max, mop 1 Slightly dry .. 3 Slightly wet (same as Freo X Plus).
+            # Sending the raw enum made "Max" (3) run at Standard.
+            + _make_protobuf_varint(5, fan_level.value + 2)
+            + _make_protobuf_varint(6, mop_humidity.value + 1)
             + _make_protobuf_varint(7, 1)
             + _make_protobuf_varint(8, 1)
             + _make_protobuf_varint(9, 1)
@@ -639,12 +642,18 @@ class NarwalClient:
         return await self.send_command(TOPIC_CMD_RECALL)
 
     async def set_fan_speed(self, level: FanLevel) -> CommandResponse:
-        extra = _make_protobuf_varint(1, level.value)
-        return await self.send_command(TOPIC_CMD_SET_FAN_LEVEL, extra)
+        # Same app scale as start_clean: 2 Quiet .. 5 Max.
+        extra = _make_protobuf_varint(1, level.value + 2)
+        resp = await self.send_command(TOPIC_CMD_SET_FAN_LEVEL, extra)
+        _LOGGER.info("set_fan_level %s -> result=%s", level.name, resp.result_code)
+        return resp
 
     async def set_mop_humidity(self, level: MopHumidity) -> CommandResponse:
-        extra = _make_protobuf_varint(1, level.value)
-        return await self.send_command(TOPIC_CMD_SET_MOP_HUMIDITY, extra)
+        # App scale: 1 Slightly dry .. 3 Slightly wet.
+        extra = _make_protobuf_varint(1, level.value + 1)
+        resp = await self.send_command(TOPIC_CMD_SET_MOP_HUMIDITY, extra)
+        _LOGGER.info("set_mop_humidity %s -> result=%s", level.name, resp.result_code)
+        return resp
 
     async def get_device_info(self) -> CommandResponse:
         return await self.send_command(TOPIC_CMD_GET_DEVICE_INFO)
