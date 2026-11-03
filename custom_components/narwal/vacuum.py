@@ -12,6 +12,7 @@ from homeassistant.components.vacuum import (
 )
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
+from homeassistant.helpers.restore_state import RestoreEntity
 
 from . import NarwalConfigEntry
 from .const import CLEAN_MODE_MAP, FAN_SPEED_LIST, FAN_SPEED_MAP, FAN_SPEED_REVERSE
@@ -52,7 +53,7 @@ async def async_setup_entry(
     async_add_entities([NarwalVacuum(coordinator)])
 
 
-class NarwalVacuum(NarwalEntity, StateVacuumEntity):
+class NarwalVacuum(NarwalEntity, StateVacuumEntity, RestoreEntity):
     """Representation of a Narwal robot vacuum."""
 
     _attr_translation_key = "narwal"
@@ -71,6 +72,14 @@ class NarwalVacuum(NarwalEntity, StateVacuumEntity):
     def __init__(self, coordinator: NarwalCoordinator) -> None:
         super().__init__(coordinator)
         self._attr_unique_id = f"{coordinator.config_entry.data['device_name']}_vacuum"
+
+    async def async_added_to_hass(self) -> None:
+        """Restore the chosen suction across restarts, like the selects do."""
+        await super().async_added_to_hass()
+        last = await self.async_get_last_state()
+        level = FAN_SPEED_MAP.get(last.attributes.get("fan_speed")) if last else None
+        if level is not None:
+            self.coordinator.selected_fan_level = FanLevel(level)
 
     @property
     def available(self) -> bool:
